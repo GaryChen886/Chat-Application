@@ -2,8 +2,9 @@ import sys
 import socket
 import threading
 import os
-from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QTextEdit, QPushButton, QFileDialog
+from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QTextEdit, QPushButton, QFileDialog, QHBoxLayout
 from PyQt5.QtCore import pyqtSignal, QObject
+from PyQt5.QtGui import QTextCursor
 
 
 class Communicate(QObject):
@@ -19,32 +20,30 @@ class ServerWindow(QMainWindow):
         self.text_display = QTextEdit(self)
         self.text_display.setReadOnly(True)
         self.setCentralWidget(self.text_display)
-        
-        self.button_send_file = QPushButton("Send File", self)
-        layout = QVBoxLayout()
-        self.button_send_file.clicked.connect(self.send_file_dialog)
 
-        #
         self.text_input = QTextEdit(self)
         self.button_send = QPushButton("Send", self)
         self.button_send.clicked.connect(self.send_message)
 
-        
-        
+        self.button_send_file = QPushButton("Send File", self)
+        self.button_send_file.clicked.connect(self.send_file_dialog)
 
         layout = QVBoxLayout()
         layout.addWidget(self.text_display)
+
+        input_widget = QWidget()
+        input_layout = QHBoxLayout()
+        input_layout.addWidget(self.text_input)
+        input_layout.addWidget(self.button_send)
+        input_widget.setLayout(input_layout)
+
+        layout.addWidget(input_widget)
         layout.addWidget(self.button_send_file)
 
-        # main_widget = QWidget(self)
-        # main_widget.setLayout(layout)
-        main_widget = QWidget(self)
+        main_widget = QWidget()
         main_widget.setLayout(layout)
         self.setCentralWidget(main_widget)
 
-        self.setCentralWidget(main_widget)
-        layout.addWidget(self.text_input)
-        layout.addWidget(self.button_send)
         self.communicate = Communicate()
         self.communicate.message_received.connect(self.display_message)
 
@@ -56,7 +55,16 @@ class ServerWindow(QMainWindow):
         self.accept_thread.start()
 
     def display_message(self, message):
-        self.text_display.append(message)
+        message_text = message.split(":")[1]  # 分離出訊息內容
+        message_type = message.split(":")[0]  # 分離出訊息類型
+
+        if message_type == "MESSAGE":
+            self.append_message(f"You: {message_text}", "blue")
+        elif message_type == "FILE":
+            file_name = message_text.split("/")[-1]  # 分離出檔案名稱
+            self.append_message(f"File received: {file_name}", "green")
+        else:
+            self.append_message(message_text, "black")
 
     def send_file_dialog(self):
         file_dialog = QFileDialog(self)
@@ -88,8 +96,15 @@ class ServerWindow(QMainWindow):
         message = self.text_input.toPlainText()
         if message:
             self.text_input.clear()
+            self.append_message(f"You: {message}", "blue")  # 將訊息顯示在 text_display 上
             self.broadcast(f"MESSAGE:{message}")
-
+            
+    def append_message(self, message, color):
+        cursor = self.text_display.textCursor()
+        cursor.movePosition(QTextCursor.End)
+        cursor.insertHtml(f'<span style="color: {color};">{message}</span><br>')
+        self.text_display.setTextCursor(cursor)
+        self.text_display.ensureCursorVisible()
     
     def broadcast(self, message):
         for client in self.accept_thread.clients:
@@ -97,13 +112,6 @@ class ServerWindow(QMainWindow):
                 client.sendall(message.encode('utf-8'))
             except Exception as e:
                 print(f"Error sending message: {str(e)}")
-
-    # def broadcast_data(self, data):
-    #     for client in self.accept_thread.clients:
-    #         try:
-    #             client.sendall(data)
-    #         except Exception as e:
-    #             print(f"Error sending data: {str(e)}")
     def broadcast_data(self, data):
         for client_socket in self.clients:
             try:
