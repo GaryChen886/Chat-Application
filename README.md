@@ -11,4 +11,5 @@
 - Enter the following commands on two terminal pages respectively:
   -  ```python3 chat_server.py```
   -  ```python3 chat_client.py```
+- Or just simply use ```python3 script.py``` to run this code.   
   
