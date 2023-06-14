@@ -13,27 +13,27 @@ def receive_message(client_socket):
             break
 
 def main():
-    # 建立socket
+    # socket
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-    # 綁定IP和埠號
+    # Bind IP
     server_socket.bind(('localhost', 8888))
 
-    # 開始監聽
+    # Listen
     server_socket.listen()
 
     print('Server started. Waiting for connections...')
 
     while True:
-        # 接受客戶端連接
+        # Accept connection
         client_socket, client_address = server_socket.accept()
         print(f'Connected with {client_address}')
 
-        # 開啟一個線程接收客戶端訊息
+        # Thread for receiving message
         receive_thread = threading.Thread(target=receive_message, args=(client_socket,))
         receive_thread.start()
 
-        # 主線程用於發送訊息
+        # Send message
         while True:
             message = input()
             client_socket.send(message.encode('utf-8'))
