@@ -4,8 +4,8 @@ import threading
 import os
 from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QTextEdit, QPushButton, QFileDialog, QHBoxLayout
 from PyQt5.QtCore import pyqtSignal, QObject
-from PyQt5.QtGui import QTextCursor
-
+from PyQt5.QtGui import QTextCursor, QColor
+from PyQt5.QtGui import QFont, QFontDatabase
 
 class Communicate(QObject):
     message_received = pyqtSignal(str)
@@ -16,17 +16,23 @@ class ServerWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle("Chat Server")
         self.setGeometry(200, 200, 400, 400)
-
+        font = QFont("Bradley Hand ITC", 26) 
+        self.setFont(font)
+        
         self.text_display = QTextEdit(self)
         self.text_display.setReadOnly(True)
         self.setCentralWidget(self.text_display)
-
+        self.text_display.setStyleSheet("background-color: #F0F0F0;")
+        font = QFont("Bahnschrift SemiBold", 24, QFont.Bold)
+        self.text_display.setFont(font)
         self.text_input = QTextEdit(self)
         self.button_send = QPushButton("Send", self)
         self.button_send.clicked.connect(self.send_message)
+        self.button_send.setStyleSheet("background-color: #4CAF50; color: white;")
 
         self.button_send_file = QPushButton("Send File", self)
         self.button_send_file.clicked.connect(self.send_file_dialog)
+        self.button_send_file.setStyleSheet("background-color: #2196F3; color: white;")
 
         layout = QVBoxLayout()
         layout.addWidget(self.text_display)
@@ -55,13 +61,13 @@ class ServerWindow(QMainWindow):
         self.accept_thread.start()
 
     def display_message(self, message):
-        message_text = message.split(":")[1]  # 分離出訊息內容
-        message_type = message.split(":")[0]  # 分離出訊息類型
+        message_text = message.split(":")[1]  # Separate message content
+        message_type = message.split(":")[0]  # Separate message type
 
         if message_type == "MESSAGE":
             self.append_message(f"You: {message_text}", "blue")
         elif message_type == "FILE":
-            file_name = message_text.split("/")[-1]  # 分離出檔案名稱
+            file_name = message_text.split("/")[-1]  # Separate file name
             self.append_message(f"File received: {file_name}", "green")
         else:
             self.append_message(message_text, "black")
@@ -76,13 +82,13 @@ class ServerWindow(QMainWindow):
         file_name = os.path.basename(file_path)
         file_size = os.path.getsize(file_path)
 
-        # 發送檔案指令和檔案名稱
+        # Send file command and file name
         self.broadcast(f"FILE:{file_name}")
 
-        # 發送檔案大小
+        # Send file size
         self.broadcast(f"SIZE:{file_size}")
 
-        # 發送檔案內容
+        # Send file content
         with open(file_path, 'rb') as file:
             while True:
                 data = file.read(1024)
@@ -90,30 +96,31 @@ class ServerWindow(QMainWindow):
                     break
                 self.broadcast_data(data)
 
-        self.text_display.append(f"File sent: {file_name}")
-        
+        self.append_message(f"File sent: {file_name}", "blue")
+
     def send_message(self):
         message = self.text_input.toPlainText()
         if message:
             self.text_input.clear()
-            self.append_message(f"You: {message}", "blue")  # 將訊息顯示在 text_display 上
-            self.broadcast(f"MESSAGE:{message}")
-            
+            self.append_message(f"You: {message}", "blue")
+            self.broadcast(message)
+
     def append_message(self, message, color):
         cursor = self.text_display.textCursor()
         cursor.movePosition(QTextCursor.End)
         cursor.insertHtml(f'<span style="color: {color};">{message}</span><br>')
         self.text_display.setTextCursor(cursor)
         self.text_display.ensureCursorVisible()
-    
+
     def broadcast(self, message):
         for client in self.accept_thread.clients:
             try:
                 client.sendall(message.encode('utf-8'))
             except Exception as e:
                 print(f"Error sending message: {str(e)}")
+
     def broadcast_data(self, data):
-        for client_socket in self.clients:
+        for client_socket in self.accept_thread.clients:
             try:
                 client_socket.sendall(data)
             except Exception as e:
@@ -136,12 +143,6 @@ class AcceptThread(QObject, threading.Thread):
             self.clients.append(client_socket)
             client_thread.start()
 
-    # def broadcast_data(self, data):
-    #     for client in self.clients:
-    #         try:
-    #             client.sendall(data)
-    #         except Exception as e:
-    #             print(f"Error sending data: {str(e)}")
     def broadcast_data(self, data):
         for client_socket in self.clients:
             try:
@@ -167,7 +168,6 @@ class ClientThread(QObject, threading.Thread):
             self.signal.emit(f"Message received: {message}")
             self.broadcast(message)
 
-            # 檢查是否收到檔案指令
             if message.startswith("FILE:"):
                 file_name = message[5:]
                 self.receive_file(file_name)
@@ -175,11 +175,9 @@ class ClientThread(QObject, threading.Thread):
         self.client_socket.close()
 
     def receive_file(self, file_name):
-        # 接收檔案大小
         size_data = self.client_socket.recv(1024).decode('utf-8')
         file_size = int(size_data[5:])
 
-        # 接收檔案內容
         received_size = 0
         with open(file_name, 'wb') as file:
             while received_size < file_size:

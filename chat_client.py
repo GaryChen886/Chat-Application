@@ -2,8 +2,10 @@ import sys
 import socket
 import os
 import threading
-from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QTextEdit, QPushButton, QFileDialog, QInputDialog
-from PyQt5.QtCore import pyqtSignal, QObject
+from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QTextEdit, QPushButton, QFileDialog, QInputDialog, QHBoxLayout
+from PyQt5.QtCore import pyqtSignal, QObject, Qt
+from PyQt5.QtGui import QColor, QFont
+from PyQt5 import QtCore, QtGui, QtWidgets
 
 
 class Communicate(QObject):
@@ -15,23 +17,37 @@ class ClientWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle("Chat Client")
         self.setGeometry(200, 200, 400, 400)
-
+        font = QFont("Bradley Hand ITC", 26) 
+        self.setFont(font)
+        
         self.text_display = QTextEdit(self)
         self.text_display.setReadOnly(True)
-        self.setCentralWidget(self.text_display)
-
-        self.button_send_message = QPushButton("Send Message", self)
-        self.button_send_message.clicked.connect(self.send_message_dialog)
+        self.text_display.setStyleSheet("background-color: #F0F0F0;")
+        font = QFont("Bahnschrift SemiBold", 24, QFont.Bold)
+        self.text_display.setFont(font)
+        
+        self.text_input = QTextEdit(self)
+        self.button_send = QPushButton("Send", self)
+        self.button_send.clicked.connect(self.send_message_dialog)
+        self.button_send.setStyleSheet("background-color: #4CAF50; color: white;")
 
         self.button_send_file = QPushButton("Send File", self)
         self.button_send_file.clicked.connect(self.send_file_dialog)
+        self.button_send_file.setStyleSheet("background-color: #2196F3; color: white;")
 
         layout = QVBoxLayout()
         layout.addWidget(self.text_display)
-        layout.addWidget(self.button_send_message)
+
+        input_widget = QWidget()
+        input_layout = QHBoxLayout()
+        input_layout.addWidget(self.text_input)
+        input_layout.addWidget(self.button_send)
+        input_widget.setLayout(input_layout)
+
+        layout.addWidget(input_widget)
         layout.addWidget(self.button_send_file)
 
-        main_widget = QWidget(self)
+        main_widget = QWidget()
         main_widget.setLayout(layout)
         self.setCentralWidget(main_widget)
 
@@ -44,17 +60,23 @@ class ClientWindow(QMainWindow):
         self.receive_thread = ReceiveThread(self.client_socket, self.communicate.message_received)
         self.receive_thread.start()
 
-    def display_message(self, message):
-        self.text_display.append(message)
+    def display_message(self, message, is_sent=False):
+        text_color = QColor("blue") if is_sent else QColor("black")
+        self.text_display.moveCursor(QtGui.QTextCursor.End)
+        self.text_display.setTextColor(text_color)
+        self.text_display.insertPlainText(message + "\n")
 
     def send_message_dialog(self):
-        message, ok = QInputDialog.getText(self, "Send Message", "Enter message:")
-        if ok:
+        message = self.text_input.toPlainText()
+        if message:
+            self.text_input.clear()
             self.send_message(message)
 
     def send_message(self, message):
         try:
-            self.client_socket.sendall(message.encode('utf-8'))
+            message_str = str(message)
+            self.client_socket.sendall(message_str.encode('utf-8'))
+            self.display_message(f"You: {message_str}", is_sent=True)
         except Exception as e:
             print(f"Error sending message: {str(e)}")
 
@@ -82,7 +104,7 @@ class ClientWindow(QMainWindow):
                     break
                 self.client_socket.sendall(data)
 
-        self.text_display.append(f"File sent: {file_name}")
+        self.display_message(f"File sent: {file_name}", is_sent=True)
 
 
 class ReceiveThread(QObject, threading.Thread):
@@ -98,7 +120,7 @@ class ReceiveThread(QObject, threading.Thread):
             if not data:
                 break
             message = data.decode('utf-8')
-            self.signal.emit(f"Message received: {message}")
+            self.signal.emit(f"{message}")
 
             # Check if file command received
             if message.startswith("FILE:"):
