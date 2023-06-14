@@ -97,7 +97,8 @@ class ServerWindow(QMainWindow):
         if message:
             self.text_input.clear()
             self.append_message(f"You: {message}", "blue")  # 將訊息顯示在 text_display 上
-            self.broadcast(f"MESSAGE:{message}")
+            #self.broadcast(f"MESSAGE:{message}")
+            self.broadcast(f"{message}")
             
     def append_message(self, message, color):
         cursor = self.text_display.textCursor()
