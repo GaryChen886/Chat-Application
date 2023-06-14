@@ -4,8 +4,9 @@ import os
 import threading
 from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QTextEdit, QPushButton, QFileDialog, QInputDialog, QHBoxLayout
 from PyQt5.QtCore import pyqtSignal, QObject, Qt
-from PyQt5.QtGui import QColor
-from PyQt5 import QtCore, QtGui, QtWidgets #works for pyqt5
+from PyQt5.QtGui import QColor, QFont
+from PyQt5 import QtCore, QtGui, QtWidgets
+
 
 class Communicate(QObject):
     message_received = pyqtSignal(str)
@@ -16,16 +17,23 @@ class ClientWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle("Chat Client")
         self.setGeometry(200, 200, 400, 400)
-
+        font = QFont("Bradley Hand ITC", 26) 
+        self.setFont(font)
+        
         self.text_display = QTextEdit(self)
         self.text_display.setReadOnly(True)
-
+        self.text_display.setStyleSheet("background-color: #F0F0F0;")
+        font = QFont("Bahnschrift SemiBold", 24, QFont.Bold)
+        self.text_display.setFont(font)
+        
         self.text_input = QTextEdit(self)
         self.button_send = QPushButton("Send", self)
         self.button_send.clicked.connect(self.send_message_dialog)
+        self.button_send.setStyleSheet("background-color: #4CAF50; color: white;")
 
         self.button_send_file = QPushButton("Send File", self)
         self.button_send_file.clicked.connect(self.send_file_dialog)
+        self.button_send_file.setStyleSheet("background-color: #2196F3; color: white;")
 
         layout = QVBoxLayout()
         layout.addWidget(self.text_display)
@@ -52,15 +60,11 @@ class ClientWindow(QMainWindow):
         self.receive_thread = ReceiveThread(self.client_socket, self.communicate.message_received)
         self.receive_thread.start()
 
-    
-    
-    
     def display_message(self, message, is_sent=False):
         text_color = QColor("blue") if is_sent else QColor("black")
         self.text_display.moveCursor(QtGui.QTextCursor.End)
         self.text_display.setTextColor(text_color)
         self.text_display.insertPlainText(message + "\n")
-        
 
     def send_message_dialog(self):
         message = self.text_input.toPlainText()
