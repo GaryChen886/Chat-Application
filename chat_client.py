@@ -105,7 +105,28 @@ class ClientWindow(QMainWindow):
                 self.client_socket.sendall(data)
 
         self.display_message(f"File sent: {file_name}", is_sent=True)
+    def display_message(self, message, is_sent=False):
+        if message.startswith("IMAGE:"):
+            image_name = message[6:]
+            self.receive_image(image_name)
+        else:
+            text_color = QColor("blue") if is_sent else QColor("black")
+            self.text_display.moveCursor(QtGui.QTextCursor.End)
+            self.text_display.setTextColor(text_color)
+            self.text_display.insertPlainText(message + "\n")
 
+    def receive_image(self, image_name):
+        image_data = b""
+        while True:
+            data = self.client_socket.recv(1024)
+            if not data:
+                break
+            image_data += data
+
+        with open(image_name, 'wb') as image_file:
+            image_file.write(image_data)
+
+        self.display_message(f"Image received: {image_name}")
 
 class ReceiveThread(QObject, threading.Thread):
     def __init__(self, client_socket, signal):
