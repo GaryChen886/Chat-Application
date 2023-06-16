@@ -120,9 +120,8 @@ class ServerWindow(QMainWindow):
 
     def send_image(self, image_path):
         image_name = os.path.basename(image_path)
-
         # Send image command and image name
-        self.broadcast(f"IMAGE:{image_name}")
+        self.broadcast(b"IMAGE:" + image_name.encode())
 
         # Send image content
         with open(image_path, 'rb') as image_file:
@@ -130,6 +129,20 @@ class ServerWindow(QMainWindow):
             self.broadcast_data(image_data)
 
         self.append_message(f"Image sent: {image_name}", "blue")
+
+    def receive_image(self, image_name):
+        image_data = b""
+        while True:
+            data = self.client_socket.recv(1024)
+            if not data:
+                break
+            image_data += data
+
+        with open(image_name, 'wb') as image_file:
+            image_file.write(image_data)
+
+        self.append_message(f"Image received: {image_name}")
+
 
     ###########################################################################
     def broadcast(self, message):
