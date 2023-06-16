@@ -111,7 +111,27 @@ class ServerWindow(QMainWindow):
         cursor.insertHtml(f'<span style="color: {color};">{message}</span><br>')
         self.text_display.setTextCursor(cursor)
         self.text_display.ensureCursorVisible()
+    ###########################################################################
+    def send_image_dialog(self):
+        file_dialog = QFileDialog(self)
+        file_path, _ = file_dialog.getOpenFileName()
+        if file_path:
+            self.send_image(file_path)
 
+    def send_image(self, image_path):
+        image_name = os.path.basename(image_path)
+
+        # Send image command and image name
+        self.broadcast(f"IMAGE:{image_name}")
+
+        # Send image content
+        with open(image_path, 'rb') as image_file:
+            image_data = image_file.read()
+            self.broadcast_data(image_data)
+
+        self.append_message(f"Image sent: {image_name}", "blue")
+
+    ###########################################################################
     def broadcast(self, message):
         for client in self.accept_thread.clients:
             try:
