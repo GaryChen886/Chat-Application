@@ -6,7 +6,8 @@ from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QTe
 from PyQt5.QtCore import pyqtSignal, QObject, Qt
 from PyQt5.QtGui import QColor, QFont
 from PyQt5 import QtCore, QtGui, QtWidgets
-
+from PyQt5.QtWidgets import QApplication, QLabel
+from PyQt5.QtGui import QPixmap
 
 class Communicate(QObject):
     message_received = pyqtSignal(str)
@@ -120,6 +121,75 @@ class ClientWindow(QMainWindow):
     #             self.client_socket.sendall(data)
 
     #     self.display_message(f"File sent: {file_name}", is_sent=True)
+    def send_sticker(self, sticker_path):
+        sticker_name = os.path.basename(sticker_path)
+        sticker_size = os.path.getsize(sticker_path)
+
+        self.client_socket.sendall(f"STICKER:{sticker_name}".encode())
+
+        # Send sticker size
+        self.client_socket.sendall(f"SIZE:{sticker_size}".encode())
+
+        # Send sticker content
+        with open(sticker_path, 'rb') as sticker_file:
+            while True:
+                data = sticker_file.read(1024)
+                if not data:
+                    break
+                self.client_socket.sendall(data)
+        self.append_message(f"Sticker sent: {sticker_name}", "blue")
+
+# ... 省略其他程式碼 ...
+
+    def send_sticker_dialog(self):
+        file_dialog = QFileDialog(self)
+        file_dialog.setFileMode(QFileDialog.ExistingFile)
+        file_dialog.setNameFilter("Images (*.png *.jpg)")
+        sticker_path, _ = file_dialog.getOpenFileName()
+        if sticker_path:
+            self.send_sticker(sticker_path)
+    def receive_sticker(self, sticker_name, sticker_size):
+        received_data = b""
+        remaining_size = sticker_size
+
+        while remaining_size > 0:
+            data = self.client_socket.recv(min(remaining_size, 1024))
+            if not data:
+                break
+            received_data += data
+            remaining_size -= len(data)
+
+        # 保存圖片
+        save_path = os.path.join("received", sticker_name)
+        with open(save_path, "wb") as file:
+            file.write(received_data)
+
+        self.append_message(f"Sticker received: {sticker_name}", "green")
+
+        # 開啟圖片視窗
+        self.show_image(save_path)
+
+    def show_image(self, image_path):
+        image_viewer = ImageViewer(image_path)
+        image_viewer.show()
+
+class ImageViewer(QWidget):
+    def __init__(self, image_path):
+        super().__init__()
+
+        self.setWindowTitle("Image Viewer")
+        self.setGeometry(100, 100, 500, 500)
+
+        layout = QVBoxLayout()
+
+        image_label = QLabel()
+        pixmap = QPixmap(image_path)
+        image_label.setPixmap(pixmap.scaled(400, 400, Qt.AspectRatioMode.KeepAspectRatio))
+        layout.addWidget(image_label)
+
+        self.setLayout(layout)
+
+
 
 
 class ReceiveThread(QObject, threading.Thread):
