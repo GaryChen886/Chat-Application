@@ -139,7 +139,6 @@ class ClientWindow(QMainWindow):
                 self.client_socket.sendall(data)
         self.append_message(f"Sticker sent: {sticker_name}", "blue")
 
-# ... 省略其他程式碼 ...
 
     def send_sticker_dialog(self):
         file_dialog = QFileDialog(self)
@@ -217,7 +216,8 @@ class ReceiveThread(QObject, threading.Thread):
     def receive_file(self, file_name):
         # Receive file size
         size_data = self.client_socket.recv(1024).decode('utf-8')
-        file_size = int(size_data.split('\n')[0].split(':')[1])
+        file_size_str = size_data.split(':')[1]
+        file_size = int(file_size_str)
 
         # Receive file content
         received_size = 0
