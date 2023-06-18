@@ -85,17 +85,13 @@ class ClientWindow(QMainWindow):
         file_path, _ = file_dialog.getOpenFileName()
         if file_path:
             self.send_file(file_path)
-
     def send_file(self, file_path):
         file_name = os.path.basename(file_path)
         file_size = os.path.getsize(file_path)
-
         # Send file command and file name
-        self.client_socket.sendall(f"FILE:{file_name}".encode('utf-8'))
-
+        self.client_socket.sendall(f"FILE:{file_name}\n".encode('utf-8'))
         # Send file size
-        self.client_socket.sendall(f"SIZE:{file_size}".encode('utf-8'))
-
+        self.client_socket.sendall(f"SIZE:{file_size}\n".encode('utf-8'))
         # Send file content
         with open(file_path, 'rb') as file:
             while True:
@@ -103,8 +99,27 @@ class ClientWindow(QMainWindow):
                 if not data:
                     break
                 self.client_socket.sendall(data)
-
         self.display_message(f"File sent: {file_name}", is_sent=True)
+
+    # def send_file(self, file_path):
+    #     file_name = os.path.basename(file_path)
+    #     file_size = os.path.getsize(file_path)
+
+    #     # Send file command and file name
+    #     self.client_socket.sendall(f"FILE:{file_name}".encode('utf-8'))
+
+    #     # Send file size
+    #     self.client_socket.sendall(f"SIZE:{file_size}".encode('utf-8'))
+
+    #     # Send file content
+    #     with open(file_path, 'rb') as file:
+    #         while True:
+    #             data = file.read(1024)
+    #             if not data:
+    #                 break
+    #             self.client_socket.sendall(data)
+
+    #     self.display_message(f"File sent: {file_name}", is_sent=True)
 
 
 class ReceiveThread(QObject, threading.Thread):
@@ -132,7 +147,7 @@ class ReceiveThread(QObject, threading.Thread):
     def receive_file(self, file_name):
         # Receive file size
         size_data = self.client_socket.recv(1024).decode('utf-8')
-        file_size = int(size_data[5:])
+        file_size = int(size_data.split('\n')[0].split(':')[1])
 
         # Receive file content
         received_size = 0
@@ -143,6 +158,25 @@ class ReceiveThread(QObject, threading.Thread):
                 received_size += len(data)
 
         self.signal.emit(f"File received: {file_name}")
+
+    # def receive_file(self, file_name):
+    #     # Receive file size
+    #     size_data = self.client_socket.recv(1024).decode('utf-8')
+    #     file_size = int(size_data[5:])
+    #     # size_data = self.client_socket.recv(1024).decode('utf-8')
+    #     # file_size_str = size_data.split(':')[1]
+    #     # file_size = int(file_size_str)
+
+
+    #     # Receive file content
+    #     received_size = 0
+    #     with open(file_name, 'wb') as file:
+    #         while received_size < file_size:
+    #             data = self.client_socket.recv(1024)
+    #             file.write(data)
+    #             received_size += len(data)
+
+    #     self.signal.emit(f"File received: {file_name}")
 
 
 class ChatClient:
