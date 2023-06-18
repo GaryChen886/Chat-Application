@@ -81,21 +81,21 @@ class ServerWindow(QMainWindow):
     def send_file(self, file_path):
         file_name = os.path.basename(file_path)
         file_size = os.path.getsize(file_path)
-
+        file_size_str = str(file_size)
         # Send file command and file name
         self.broadcast(f"FILE:{file_name}")
 
         # Send file size
-        self.broadcast(f"SIZE:{file_size}")
-
+        # self.broadcast(f"SIZE:{file_size}")
+        self.broadcast(f"SIZE:{file_size_str}")
         # Send file content
         with open(file_path, 'rb') as file:
             while True:
                 data = file.read(1024)
                 if not data:
                     break
-                self.broadcast_data(data)
-
+                for client_socket in self.accept_thread.clients:
+                    self.broadcast_data(client_socket, data)
         self.append_message(f"File sent: {file_name}", "blue")
 
     def send_message(self):
@@ -119,12 +119,17 @@ class ServerWindow(QMainWindow):
             except Exception as e:
                 print(f"Error sending message: {str(e)}")
 
-    def broadcast_data(self, data):
-        for client_socket in self.accept_thread.clients:
-            try:
-                client_socket.sendall(data)
-            except Exception as e:
-                print(f"Error sending data: {str(e)}")
+    # def broadcast_data(self, data):
+    #     for client_socket in self.accept_thread.clients:
+    #         try:
+    #             client_socket.sendall(data)
+    #         except Exception as e:
+    #             print(f"Error sending data: {str(e)}")
+    def broadcast_data(self, client_socket, data):
+        try:
+            client_socket.sendall(data)
+        except Exception as e:
+            print(f"Error sending data: {str(e)}")
 
 
 class AcceptThread(QObject, threading.Thread):
@@ -174,9 +179,15 @@ class ClientThread(QObject, threading.Thread):
 
         self.client_socket.close()
 
+
+    
     def receive_file(self, file_name):
+        # size_data = self.client_socket.recv(1024).decode('utf-8')
+        # file_size = int(size_data[5:])
         size_data = self.client_socket.recv(1024).decode('utf-8')
-        file_size = int(size_data[5:])
+        file_size_str = size_data.split(':')[1]
+        file_size = int(file_size_str)
+
 
         received_size = 0
         with open(file_name, 'wb') as file:
