@@ -6,6 +6,13 @@ from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QTe
 from PyQt5.QtCore import pyqtSignal, QObject
 from PyQt5.QtGui import QTextCursor, QColor
 from PyQt5.QtGui import QFont, QFontDatabase
+from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QTextEdit, QPushButton, QFileDialog, QHBoxLayout
+from PyQt5.QtCore import pyqtSignal, QObject
+from PyQt5.QtGui import QTextCursor, QColor
+from PyQt5.QtGui import QFont, QFontDatabase
+from PIL import Image
+from PyQt5.QtWidgets import QApplication, QLabel
+from PyQt5.QtGui import QPixmap
 
 class Communicate(QObject):
     message_received = pyqtSignal(str)
@@ -105,6 +112,59 @@ class ServerWindow(QMainWindow):
             self.append_message(f"You: {message}", "blue")
             self.broadcast(message)
 
+    def send_sticker(self, sticker_path):
+        sticker_name = os.path.basename(sticker_path)
+        sticker_size = os.path.getsize(sticker_path)
+
+        # Send sticker command and sticker name
+        self.broadcast(f"STICKER:{sticker_name}")
+
+        # Send sticker size
+        self.broadcast(f"SIZE:{sticker_size}")
+
+        # Send sticker content
+        with open(sticker_path, 'rb') as sticker_file:
+            while True:
+                data = sticker_file.read(1024)
+                if not data:
+                    break
+                for client_socket in self.accept_thread.clients:
+                    client_socket.sendall(data)
+        self.append_message(f"Sticker sent: {sticker_name}", "blue")
+    
+    def send_sticker_dialog(self):
+        file_dialog = QFileDialog(self)
+        file_dialog.setFileMode(QFileDialog.ExistingFile)
+        file_dialog.setNameFilter("Images (*.png *.jpg)")
+        sticker_path, _ = file_dialog.getOpenFileName()
+        if sticker_path:
+            self.send_sticker(sticker_path)
+    def receive_sticker(self, sticker_name, sticker_size):
+        received_data = b""
+        remaining_size = sticker_size
+
+        while remaining_size > 0:
+            data = self.client_socket.recv(min(remaining_size, 1024))
+            if not data:
+                break
+            received_data += data
+            remaining_size -= len(data)
+
+        # 保存圖片
+        save_path = os.path.join("received", sticker_name)
+        with open(save_path, "wb") as file:
+            file.write(received_data)
+
+        self.append_message(f"Sticker received: {sticker_name}", "green")
+
+        # 開啟圖片視窗
+        self.show_image(save_path)
+
+    def show_image(self, image_path):
+        image_viewer = ImageViewer(image_path)
+        image_viewer.show()
+    
+    
     def append_message(self, message, color):
         cursor = self.text_display.textCursor()
         cursor.movePosition(QTextCursor.End)
@@ -154,7 +214,21 @@ class AcceptThread(QObject, threading.Thread):
                 client_socket.sendall(data)
             except Exception as e:
                 print(f"Error sending data: {str(e)}")
+class ImageViewer(QWidget):
+    def __init__(self, image_path):
+        super().__init__()
 
+        self.setWindowTitle("Image Viewer")
+        self.setGeometry(100, 100, 500, 500)
+
+        layout = QVBoxLayout()
+
+        image_label = QLabel()
+        pixmap = QPixmap(image_path)
+        image_label.setPixmap(pixmap.scaled(400, 400, Qt.AspectRatioMode.KeepAspectRatio))
+        layout.addWidget(image_label)
+
+        self.setLayout(layout)
 
 class ClientThread(QObject, threading.Thread):
     def __init__(self, client_socket, signal, broadcast_func):
