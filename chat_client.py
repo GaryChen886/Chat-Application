@@ -215,10 +215,11 @@ class ReceiveThread(QObject, threading.Thread):
 
     def receive_file(self, file_name):
         # Receive file size
+        # size_data = self.client_socket.recv(1024).decode('utf-8')
+        # file_size_str = size_data.split(':')[1]
+        # file_size = int(file_size_str)
         size_data = self.client_socket.recv(1024).decode('utf-8')
-        file_size_str = size_data.split(':')[1]
-        file_size = int(file_size_str)
-
+        file_size = int(size_data[5:])
         # Receive file content
         received_size = 0
         with open(file_name, 'wb') as file:
